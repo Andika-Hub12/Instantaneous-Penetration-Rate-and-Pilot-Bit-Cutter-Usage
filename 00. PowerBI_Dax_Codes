@@ -1,0 +1,27 @@
+# Instantaneous Pilot Penetration Rate (m/hr)
+Inst. Pilot PR (m/h) = 
+CALCULATE(
+    DIVIDE(
+        SUM('Sheet1'[Pilot Advance (m)]),
+        SUM('Sheet1'[Pilot Drilling Time (h)])
+    ),
+    ALL('Sheet1'[Hole Name])
+)
+
+# Instantaneous Reaming Penetration Rate (m/hr)
+Inst. Ream PR (m/h) = 
+CALCULATE(
+    DIVIDE(
+        SUM('Sheet1'[Ream Advance (m)]),
+        SUM('Sheet1'[Ream Drilling Time (h)])
+    ),
+    ALL('Sheet1'[Hole Name])
+)
+
+# Pilot Bit Dressing - Count of Pilot Bit Change
+Pilot Bit Dressing Count =
+COUNTA('Sheet1'[P Change Value]) + 1
+
+# Cutter Dressing - Count of Cutter Change
+Cutter Dressing Count =
+COUNTA('Sheet1'[R Change Value]) + 1

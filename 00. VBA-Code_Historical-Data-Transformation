@@ -1,0 +1,97 @@
+# This code is to Transform Existing data capturing format into Filter-able format
+Sub Consolidate_Sheets_Data()
+
+    Dim ws As Worksheet
+    Dim wsOut As Worksheet
+    Dim lastRow As Long, lastCol As Long
+    Dim outRow As Long
+    Dim i As Long
+    Dim lastSite As String, lastHole As String
+
+    'Create output sheet
+    Application.DisplayAlerts = False
+    On Error Resume Next
+    Worksheets("Data Base_Consolidated").Delete
+    On Error GoTo 0
+    Application.DisplayAlerts = True
+
+    Set wsOut = Worksheets.Add
+    wsOut.Name = "Data Base_Consolidated"
+
+    'Headers
+    wsOut.Cells(1, "A").Value = "Site Name"
+    wsOut.Cells(1, "B").Value = "Hole Name"
+    wsOut.Cells(1, "T").Value = "24 hrs check"
+    wsOut.Cells(1, "S").Value = "Month"
+
+    outRow = 2
+
+    'EXCLUDE column X from bulk copy ? copy only C to W
+    lastCol = wsOut.Range("W1").Column   'Column W
+
+    'Loop through each sheet
+    For Each ws In ThisWorkbook.Worksheets
+
+        'Skip output sheet
+        If ws.Name <> wsOut.Name Then
+
+            lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+
+            lastSite = ""
+            lastHole = ""
+
+            'Loop through rows
+            For i = 2 To lastRow
+
+                'STOP condition: EOS in column C
+                If Trim(ws.Cells(i, "C").Value) = "EOS" Then
+                    Exit For
+                End If
+
+                'Fill down Site Name
+                If ws.Cells(i, "A").Value <> "" Then
+                    lastSite = ws.Cells(i, "A").Value
+                End If
+
+                'Fill down Hole Name
+                If ws.Cells(i, "B").Value <> "" Then
+                    lastHole = ws.Cells(i, "B").Value
+                End If
+
+                'CONDITIONS (priority order)
+                '1. Column C has a value
+                '2. Column C is not "TOTALS"
+                '3. Column D has a value
+                If Trim(ws.Cells(i, "C").Value) <> "" _
+                   And Trim(ws.Cells(i, "C").Value) <> "TOTALS" _
+                   And Trim(ws.Cells(i, "D").Value) <> "" Then
+
+                    'Write Site & Hole
+                    wsOut.Cells(outRow, "A").Value = lastSite
+                    wsOut.Cells(outRow, "B").Value = lastHole
+
+                    'Copy Column C ? W (exclude X)
+                    wsOut.Range(wsOut.Cells(outRow, "C"), _
+                                wsOut.Cells(outRow, lastCol)).Value = _
+                        ws.Range(ws.Cells(i, "C"), ws.Cells(i, lastCol)).Value
+
+                    'Copy source X ? output T
+                    wsOut.Cells(outRow, "T").Value = ws.Cells(i, "X").Value
+
+                    'Write Month (sheet name)
+                    wsOut.Cells(outRow, "S").Value = ws.Name
+
+                    outRow = outRow + 1
+
+                End If
+            Next i
+        End If
+    Next ws
+
+    wsOut.Columns.AutoFit
+
+    MsgBox "Data consolidation complete. Column X excluded and mapped to column T.", vbInformation
+
+End Sub
+
+

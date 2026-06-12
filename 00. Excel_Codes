@@ -1,0 +1,263 @@
+# Creating Accumulation of Pilot or Ream Meters that have been done by Operators since the Start Date of each Hole
+## Pilot Meters
+=SUMIFS(
+    $J$3:$J$60000,
+    $A$3:$A$60000, A3,
+    $C$3:$C$60000, C3,
+    $V$3:$V$60000, "<=" & V3
+)
+## Ream Meters
+=SUMIFS(
+    $K$3:$K$60000,
+    $A$3:$A$60000, A3,
+    $C$3:$C$60000, C3,
+    $V$3:$V$60000, "<=" & V3
+)
+
+# Checking whether a Rod Handling Time exceeding a threshold number triggering "a pilot bit or cutter change event"
+## Pilot Activity
+=IF(N3>AE3, 1, 0)
+## Ream Activity
+=IF(N3>AF3, 1, 0)
+
+# Checking if the threshold is exceeded for 2 consecutive days with zero meter advance
+## Pilot Activity
+=IF(
+    AND(
+        OR(J3=0,J3=""),
+        COUNTIFS(
+            $A$3:$A$60000,$A3,
+            $C$3:$C$60000,$C3,
+            $V$3:$V$60000,">="&$V3,
+            $V$3:$V$60000,"<="&$V3+1,
+            $AG$3:$AG$60000,1
+        )>0
+    ),
+    1,0
+)
+## Ream Activity
+=IF(
+    AND(
+        OR(K3=0, K3=""),
+        Y3<>0,
+        COUNTIFS(
+            $A$3:$A$60000, $A3,
+            $C$3:$C$60000, $C3,
+            $V$3:$V$60000, ">=" & $V3,
+            $V$3:$V$60000, "<=" & $V3+1,
+            $AH$3:$AH$60000, 1
+        ) > 0
+    ),
+    1,
+    0
+)
+
+# Detecting changes in pattern for Pilot/Ream activity
+## Pilot Activity
+=LET(
+    site, $A3,
+    hole, $C3,
+    date, $V3,
+    nextDate,
+        MINIFS($V$3:$V$60000,
+               $A$3:$A$60000, site,
+               $C$3:$C$60000, hole,
+               $V$3:$V$60000, ">" & date),
+    nextAU,
+        XLOOKUP(1,
+            ($A$3:$A$60000=site) *
+            ($C$3:$C$60000=hole) *
+            ($V$3:$V$60000=nextDate),
+            $AI$3:$AI$60000,
+            0
+        ),
+    IF(AND(AI3<>1, nextAU=1), 1, 0)
+)
+## Ream Activity
+=LET(
+    site, $A3,
+    hole, $C3,
+    date, $V3,
+    nextDate,
+        MINIFS($V$3:$V$60000,
+               $A$3:$A$60000, site,
+               $C$3:$C$60000, hole,
+               $V$3:$V$60000, ">" & date),
+    nextAV,
+        XLOOKUP(1,
+            ($A$3:$A$60000=site) *
+            ($C$3:$C$60000=hole) *
+            ($V$3:$V$60000=nextDate),
+            $AJ$3:$AJ$60000,
+            0
+        ),
+    lastAV1Date,
+        MAXIFS($V$3:$V$60000,
+               $A$3:$A$60000, site,
+               $C$3:$C$60000, hole,
+               $AJ$3:$AJ$60000, 1,
+               $V$3:$V$60000, "<=" & date),
+    lastZwhenAV1,
+        XLOOKUP(1,
+            ($A$3:$A$60000=site) *
+            ($C$3:$C$60000=hole) *
+            ($V$3:$V$60000=lastAV1Date),
+            $Y$3:$Y$60000,
+            ""
+        ),
+    IF(
+        AND(
+            AJ3<>1,
+            nextAV=1,
+            $Y3<>lastZwhenAV1
+        ),
+        1,
+        0
+    )
+)
+
+# Counting the Changes in Pattern (Indication of Pilot Bit Change and Cutter Change)
+## Pilot Activity
+=LET(
+    site, $A3,
+    hole, $C3,
+    date, $V3,
+    maxY, MAXIFS($X$3:$X$60000, $A$3:$A$60000, site, $C$3:$C$60000, hole),
+    maxYdate, MINIFS($V$3:$V$60000, $A$3:$A$60000, site, $C$3:$C$60000, hole, $X$3:$X$60000, maxY),
+    cnt, COUNTIFS(
+        $A$3:$A$60000, site,
+        $C$3:$C$60000, hole,
+        $V$3:$V$60000, "<=" & date,
+        $V$3:$V$60000, "<=" & maxYdate,
+        $AK$3:$AK$60000, 1
+    ),
+    cnt
+)
+## Ream Activity
+=COUNTIFS(
+    $A$3:$A$60000, $A3,
+    $C$3:$C$60000, $C3,
+    $V$3:$V$60000, "<=" & $V3,
+    $AL$3:$AL$60000, 1,
+    $Y$3:$Y$60000, "<>0"
+)
+
+# Showing the Exact Meters when the Pilot Bit or Reamer Change Happened
+## Pilot Activity
+=LET(
+    site, $A3,
+    hole, $C3,
+    date, $V3,
+    currAW, $AM3,
+    dAll, $V$3:$V$60000,
+    sAll, $A$3:$A$60000,
+    hAll, $C$3:$C$60000,
+    xAll, $X$3:$X$60000,
+    awAll, $AM$3:$AM$60000,
+    mask, (sAll=site)*(hAll=hole),
+    nextDate, MINIFS(dAll, sAll, site, hAll, hole, dAll, ">"&date),
+    nextY, IFERROR(
+        INDEX(FILTER(xAll, mask*(dAll=nextDate)), 1),
+        ""
+    ),
+    prevDate, MAXIFS(dAll, sAll, site, hAll, hole, dAll, "<"&date),
+    prevAW, IFERROR(
+        INDEX(FILTER(awAll, mask*(dAll=prevDate)), 1),
+        ""
+    ),
+    lastNonZeroDate, MAXIFS(
+        dAll,
+        sAll, site,
+        hAll, hole,
+        xAll, "<>0",
+        dAll, "<"&date
+    ),
+    lastNonZeroY, IFERROR(
+        INDEX(FILTER(xAll, mask*(dAll=lastNonZeroDate)), 1),
+        ""
+    ),
+    maxY, MAXIFS(xAll, sAll, site, hAll, hole),
+    IF(
+        AND(
+            prevAW<>"",
+            currAW<>prevAW,
+            nextY<>"",
+            nextY<>0,
+            nextY<>lastNonZeroY,
+            nextY<>maxY,
+            maxY-$X3>10
+        ),
+        nextY,
+        ""
+    )
+)
+## Ream Activity
+=LET(
+    site, $A3,
+    hole, $C3,
+    date, $V3,
+    currAX, $AN3,
+    nextDate, MINIFS($V$3:$V$60000, $A$3:$A$60000, site, $C$3:$C$60000, hole, $V$3:$V$60000, ">" & date),
+    nextZ, XLOOKUP(1,
+                    ($A$3:$A$60000=site) *
+                    ($C$3:$C$60000=hole) *
+                    ($V$3:$V$60000=nextDate),
+                    $Y$3:$Y$60000,
+                    0),
+    lastNonZeroDate, MAXIFS($V$3:$V$60000, $A$3:$A$60000, site, $C$3:$C$60000, hole, $Y$3:$Y$60000, "<>0", $V$3:$V$60000, "<" & date),
+    lastNonZeroZ, XLOOKUP(1,
+                            ($A$3:$A$60000=site) *
+                            ($C$3:$C$60000=hole) *
+                            ($V$3:$V$60000=lastNonZeroDate),
+                            $Y$3:$Y$60000,
+                            0),
+    prevDate, MAXIFS($V$3:$V$60000, $A$3:$A$60000, site, $C$3:$C$60000, hole, $V$3:$V$60000, "<" & date),
+    prevAX, XLOOKUP(1,
+                    ($A$3:$A$60000=site) *
+                    ($C$3:$C$60000=hole) *
+                    ($V$3:$V$60000=prevDate),
+                    $AN$3:$AN$60000,
+                    0),
+    MaxZ, MAXIFS($Y$3:$Y$60000, $A$3:$A$60000, site, $C$3:$C$60000, hole),
+    IF(AND(currAX<>prevAX, nextZ<>0, nextZ<>lastNonZeroZ, nextZ<>MaxZ, MaxZ-Y3>10), nextZ, "")
+)
+
+# Showing the date when Pilot Bit or Reamer Change happened
+## Pilot Activity
+=IF(AO3="","",V3)
+## Ream Activity
+=IF(AP3="","",V3)
+
+# Categorizing whether Pilot or Ream Activity is happening
+## Pilot Activtiy
+=IFERROR(IF(
+    MAX(
+        FILTER(
+            $X$3:$X$60000,
+            ($A$3:$A$60000=A3) *
+            ($B$3:$B$60000=B3) *
+            ($C$3:$C$60000=C3) *
+            ($V$3:$V$60000>=MINIFS($V$3:$V$60000,$A$3:$A$60000,A3,$B$3:$B$60000,B3,$C$3:$C$60000,C3)) *
+            ($V$3:$V$60000<=MAXIFS($V$3:$V$60000,$A$3:$A$60000,A3,$B$3:$B$60000,B3,$C$3:$C$60000,C3))
+        )
+    )=0,
+    0,
+    1
+),0)
+## Ream Activity
+=IFERROR(
+    IF(
+        MAXIFS(
+            $Y$3:$Y$60000,
+            $A$3:$A$60000, A3,
+            $B$3:$B$60000, B3,
+            $C$3:$C$60000, C3
+        ) = 0,
+        0,
+        1
+    ),
+    0
+)
+
+# All the cell index A to AU will be shown on the excel file (.xlsx) with 3 row data entry example.
+Names are changed due to confidentiality.
